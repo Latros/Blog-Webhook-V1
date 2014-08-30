@@ -1,44 +1,42 @@
-{# ------------------------------------------------------- #}
-
-{# YOUR HOMEPAGE #}
-
-{# Webhook uses the SWIG.js (like Djagno/Twig) templating system. Their documentation is here: #}
-{# http://paularmstrong.github.io/swig/docs/tags/ #}
-
-{# Learn about calling data into Webhook pages here: #}
-{# http://www.webhook.com/docs/template-rules-and-filters/ #}
-
-{# ------------------------------------------------------- #}
-
-{# Confused what extends and blocks do? Watch a primer: #}
-{# http://www.webhook.com/docs/template-inheritance-blocks/ #}
 {% extends "templates/partials/base.html" %}
-
-{# This sets our page <title>. It will append "- Homepage" to the site title defined in base. #}
-{% block title %}{% parent %} - Homepage{% endblock %}
+{% block title %}{% parent %} - blogpost{% endblock %}
 
 {% block content %}
 
-  <h1>Hello world!</h1>
-
-  <p>This is your homepage, located at /pages/index.html.</p>
-
-  <p><a href="/cms/">Looking for the CMS?</a></p>
-
-  {# Grabs the data to list all the content types (set as multiple) from the CMS. #}
-  {% set types = getTypes(true) %}
-
-  {# If you have at least content page type, we show a list. #}
-  {% if types|size !== 0 %}
-
-    <h3>Content types you've created in the CMS so far.</h3>
-
-    <ul>
-    {% for type in types %}
-      <li><a href="{{ url(type) }}">{{ type.name }}</a></li>
+{% set posts = get('blogpost') %}
+{% set posts = posts|sort('publish_date', true) %}
+{% set posts = paginate(posts, 5) %}
+<!--   <ul>
+    {% for object in posts %}
+      <li><a href="{{ url(object) }}">{{ object.name }}</a></li>
     {% endfor %}
-    </ul>
+  </ul> -->
+{% include "templates/partials/paginator.html" %}
+<div class="posts">
 
-  {% endif %}
+  {% for post in posts %}
+  <section class="post">
+    <header class="post-header">
+      <img class="post-avatar" alt="{{post.author.name}}" height="48" width="48" src="{{post.author.avatar.url}}">
+      <h2 class="post-title">{{post.name}}</h2>
+      <p class="post-meta">
+        By <a class="post-author" href="#">{{post.author.name}}</a> under
 
+        {% for tag in post.tags %}
+        <a class="post-category post-category-js" href="{{tag.url}}">{{tag.name}}</a>
+        {% endfor %}
+
+      </p>
+    </header>
+    <div class="post-description">
+      <p>
+        {{post.content}}
+      </p>
+    </div>
+  </section>
+  {% endfor %}
+
+
+</div>
+{% include "templates/partials/footer.html" %}
 {% endblock %}

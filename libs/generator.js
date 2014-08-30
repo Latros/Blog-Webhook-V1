@@ -207,6 +207,10 @@ module.exports.generator = function (config, logger, fileParser) {
     var outputUrl = outFile.replace('index.html', '').replace('./.build', '');
     swigFunctions.setParams({ CURRENT_URL: outputUrl });
 
+    if(params.item) {
+      params.item = params._realGetItem(params.item._type, params.item._id);
+    }
+
     try {
       var output = swig.renderFile(inFile, params);
     } catch (e) {
@@ -360,7 +364,7 @@ module.exports.generator = function (config, logger, fileParser) {
 
       entries.forEach(function(entry) {
         if(entry.entryName.indexOf('pages/') === 0
-           || entry.entryName.indexOf('templates/') === 0 
+           || entry.entryName.indexOf('templates/') === 0
            || entry.entryName.indexOf('static/') === 0) {
           zip.extractEntryTo(entry.entryName, '.', true, true);
         }
@@ -473,6 +477,29 @@ module.exports.generator = function (config, logger, fileParser) {
     });
   };
 
+  var generatedSlugs = {};
+  var generateSlug = function(value) {
+    if(!generatedSlugs[value._type]) {
+      generatedSlugs[value._type] = {};
+    }
+
+    if(value.slug) {
+      generatedSlugs[value._type][value.slug] = true;
+      return value.slug;
+    }
+    var tmpSlug = slug(value.name).toLowerCase();
+
+    var no = 2;
+    while(generatedSlugs[value._type][tmpSlug]) {
+      tmpSlug = slug(value.name).toLowerCase() + '_' + no;
+      no++;
+    }
+
+    generatedSlugs[value._type][tmpSlug] = true;
+
+    return tmpSlug;
+  }
+
   /**
    * Renders all templates in the /templates directory to the build directory
    * @param  {Function}   done     Callback passed either a true value to indicate its done, or an error
@@ -480,6 +507,7 @@ module.exports.generator = function (config, logger, fileParser) {
    */
   this.renderTemplates = function(done, cb) {
     logger.ok('Rendering Templates');
+    generatedSlugs = {};
 
     getData(function(data, typeInfo) {
 
@@ -575,7 +603,9 @@ module.exports.generator = function (config, logger, fileParser) {
                   baseNewPath = customPathParts.join('/');
                 }
 
-                var tmpSlug = val.slug ? val.slug : slug(val.name).toLowerCase();
+                var tmpSlug = generateSlug(val);
+
+                val.slug = tmpSlug;
 
                 newPath = baseNewPath + '/' + tmpSlug + '/index.html';
 
@@ -620,7 +650,10 @@ module.exports.generator = function (config, logger, fileParser) {
                   baseNewPath = customPathParts.join('/');
                 }
 
-                var tmpSlug = val.slug ? val.slug : slug(val.name).toLowerCase();
+                var tmpSlug = generateSlug(val);
+
+                val.slug = tmpSlug;
+
                 newPath = baseNewPath + '/' + tmpSlug + '/' + middlePathName + '/index.html';
                 writeTemplate(file, newPath, { item: val });
               }
@@ -806,7 +839,7 @@ module.exports.generator = function (config, logger, fileParser) {
 
         individualMD5 = md5(template);
         fs.writeFileSync(individual, template);
-        
+
         var lTemplate = _.template(listTemplate, { typeName: name });
 
         listMD5 = md5(lTemplate);
@@ -916,8 +949,11 @@ module.exports.generator = function (config, logger, fileParser) {
         } else if (message === 'supported_messages') {
           sock.send('done:' + JSON.stringify([
             'scaffolding', 'scaffolding_force', 'check_scaffolding', 'reset_files', 'supported_messages',
-            'push', 'build', 'preset', 'layouts', 'preset_localv2'
+            'push', 'build', 'preset', 'layouts', 'preset_localv2', 'generate_slug'
           ]));
+        } else if (message.indexOf('generate_slug:') === 0) {
+          var name = JSON.parse(message.replace('generate_slug:', ''));
+          sock.send('done:' + JSON.stringify(slug(name).toLowerCase()));
         } else if (message === 'push') {
           pushSite(function(error) {
             if(error) {
